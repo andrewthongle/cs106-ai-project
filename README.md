@@ -29,7 +29,7 @@ cs106-ai-project/
 │   ├── analysis.py          # Thống kê lỗi và dự đoán câu demo
 │   ├── reporting.py         # Bảng, biểu đồ, CSV/PNG và ZIP báo cáo
 │   └── artifacts.py         # JSON, checksum và đọc checkpoint baseline
-├── requirements.txt         # Dependency cho baseline/báo cáo
+├── requirements.txt        # Dependency cho baseline/báo cáo
 ├── requirements-neural.txt  # Thêm dependency neural
 └── README.md
 ```
@@ -70,12 +70,12 @@ dev ─────────────────────────�
              selection.lock.json + SHA-256
                          │
                          ▼ (kích hoạt: CONFIRM_TEST_AFTER_LOCK=True)
-test ───────────── chỉ mở cho mô hình thắng cuộc; không fit lại ──► metrics chính thức
+test ───────────── chỉ mở cho baseline đã khóa; không fit lại ──► metrics test
 ```
 
 1. **TF-IDF đóng gói trong Pipeline**: Bộ từ vựng và trọng số IDF chỉ được học trên tập `train`. Không bao giờ `fit` trên toàn bộ tập dữ liệu trước khi chia tách.
-2. **Chọn mô hình chỉ dùng tập `dev`**: Lựa chọn mô hình tốt nhất dựa trên chỉ số **Macro-F1** (phù hợp với bài toán mất cân bằng dữ liệu) và **TOXIC Recall** (tiêu chí phụ ưu tiên độ phủ của phát ngôn độc hại).
-3. **Cơ chế khóa trạng thái (`selection.lock.json`)**: Mô hình thắng cuộc được lưu xuống đĩa (`.joblib`) và tính mã băm SHA-256. Tập `test` bị cô lập hoàn toàn và **chỉ được đọc sau khi đã khóa lựa chọn**, tuyệt đối không điều chỉnh siêu tham số sau khi mở test.
+2. **Chọn baseline chỉ dùng tập `dev`**: Chọn trong 3 baseline theo **Macro-F1** giảm dần, tiếp theo là **TOXIC Recall** giảm dần và tên model để xử lý trường hợp bằng điểm. BiLSTM/PhoBERT được so sánh riêng trên dev, không thay thế baseline đã khóa.
+3. **Cơ chế khóa trạng thái (`selection.lock.json`)**: Baseline thắng cuộc được lưu xuống đĩa (`.joblib`) và tính mã băm SHA-256. Tập `test` **chỉ được đọc sau khi đã khóa lựa chọn**; không dùng kết quả test để điều chỉnh hoặc chọn lại baseline.
 
 ```mermaid
 flowchart TD
@@ -91,7 +91,7 @@ flowchart TD
     K{"Có chạy Neural không?<br/>RUN_MODE == FULL_WITH_NEURAL"}
     J --> K
     K -- Có --> L["13. Nhánh nâng cao: BiLSTM & PhoBERT<br/>(Huấn luyện nhị phân & ghi nhận dev)"]
-    K -- Không --> M["14. Tổng kết & Tái lập kết quả"]
+    K -- Không --> M["14–15. Tổng hợp, artifacts & ZIP báo cáo"]
     L --> M
 ```
 
@@ -102,12 +102,12 @@ flowchart TD
 ### 4.1. Chạy trên Google Colab (Khuyến nghị)
 1. Bấm vào huy hiệu [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/andrewthongle/cs106-ai-project/blob/main/tri_tue_nhan_tao.ipynb) để mở trực tiếp trên Colab bằng tài khoản Google của bạn.
    Notebook cần cả package `vihsd_ai/` và các file requirements cùng phiên bản. Cell thiết lập tự clone repo khi chưa có source. Nếu các thay đổi mới chưa được đẩy lên GitHub, upload checkout mới vào `/content/cs106-ai-project/` trước khi chạy; cell không tự ghi đè checkout đã tồn tại.
-2. Tại **Cell 1**, bạn có thể tùy chỉnh biến `RUN_MODE`:
-   * `"SMOKE"`: Chạy thử nghiệm nhanh (~15 giây) trên tập mẫu nhỏ để kiểm tra luồng code không có lỗi cú pháp.
-   * `"FULL"`: Chạy chính thức toàn bộ tập dữ liệu ViHSD (~3 phút trên CPU).
+2. Tại **mục 1 — Cấu hình chế độ chạy**, bạn có thể tùy chỉnh biến `RUN_MODE`:
+   * `"SMOKE"`: Chạy trên tập mẫu nhỏ để kiểm tra luồng tải dữ liệu, train, đánh giá và xuất báo cáo; không dùng để báo cáo chất lượng mô hình.
+   * `"FULL"`: Chạy 3 baseline trên toàn bộ các split ViHSD theo giao thức train/dev/test ở trên. Thời gian phụ thuộc máy và môi trường.
    * `"FULL_WITH_NEURAL"`: Chạy toàn bộ dữ liệu kèm theo huấn luyện mô hình học sâu BiLSTM và fine-tune PhoBERT. Chọn GPU tại **Runtime** → **Change runtime type** → **T4 GPU**. Biến `NEURAL_EPOCHS` mặc định là 3; mỗi epoch đánh giá cả train/dev để vẽ đường học nên thời gian chạy phụ thuộc GPU và số epoch.
 3. Bấm **Runtime** → **Run all** (hoặc tổ hợp phím `Ctrl + F9` / `Cmd + F9`).
-4. Kết quả được lưu vào `/content/vihsd_ai_outputs/<run_id>/`. Notebook in đường dẫn cụ thể; mỗi lần khởi tạo tạo thư mục riêng để tránh trộn kết quả cũ. Sau khi hoàn tất, tải `reports.zip` từ bảng **Files** của Colab để lấy toàn bộ JSON/CSV/PNG (không gồm checkpoint lớn).
+4. Kết quả được lưu vào `/content/vihsd_ai_outputs/<run_id>/`. Notebook in đường dẫn cụ thể; mỗi lần khởi tạo tạo thư mục riêng để tránh trộn kết quả cũ. Sau khi hoàn tất, tải `reports.zip` từ bảng **Files** của Colab để lấy các file JSON/CSV/PNG báo cáo (không gồm checkpoint mô hình).
 
 ### 4.2. Chạy trên máy cục bộ (Local)
 Yêu cầu môi trường: **Python 3.10+** và máy đã cài sẵn công cụ `git`.
@@ -164,11 +164,13 @@ Khi thực thi notebook, thư mục đầu ra sẽ tự động chứa các kế
 | `audit_train_dev.json` | JSON | Báo cáo kiểm tra dữ liệu: phân bố độ dài câu, tỷ lệ nhãn, số lượng URL, fingerprint. |
 | `dev_results.json` | JSON | Bảng điểm chi tiết của cả 3 mô hình baseline trên tập Train và Dev. |
 | `selection.lock.json` | JSON | Khóa trạng thái lựa chọn mô hình kèm mã băm SHA-256 trước khi mở test. |
-| `<model_duoc_chon>.joblib` | Model | Trọng số mô hình chiến thắng (ví dụ: `linear_svc.joblib` hoặc `logistic_regression.joblib`). |
+| `<model_duoc_chon>.joblib` | Model | Toàn bộ pipeline baseline đã khóa: tiền xử lý, TF-IDF và classifier (ví dụ: `linear_svc.joblib`). |
 | `test_results.json` | JSON | Kết quả đánh giá độc lập chính thức trên tập Test đã đóng băng. |
 | `test_confusion_matrix.png` | Ảnh PNG | Biểu đồ ma trận nhầm lẫn thể hiện phân bố dự đoán đúng/sai trên tập Test. |
 | `error_analysis.json` | JSON | Báo cáo phân loại sai (False Positive / False Negative) kèm fingerprint SHA-256. |
 | `neural_results.json` | JSON | *(Khi bật `FULL_WITH_NEURAL`)* Metrics train/dev tại epoch tốt nhất, thời gian, cấu hình và trạng thái nhánh neural. |
+| `bilstm_binary.best.pt` | Checkpoint | *(Khi bật `FULL_WITH_NEURAL`)* Trọng số BiLSTM tốt nhất, từ vựng, nhãn và epoch đã chọn. |
+| `phobert_binary.best/` | Thư mục model | *(Khi bật `FULL_WITH_NEURAL`)* Model PhoBERT tốt nhất, cấu hình và tokenizer; cần giữ toàn bộ thư mục. |
 | `neural_history.json`, `neural_history.csv` | JSON/CSV | Loss tối ưu, loss/metrics train và dev, thời gian từng epoch; được lưu sau mỗi epoch. |
 | `*_summary.csv`, `*_per_class.csv` | CSV | Metrics tổng hợp và Precision/Recall/F1/Support từng lớp của baseline, test và neural. |
 | `*_learning_curves.png`, `*_confusions.png` | PNG | Đường học với epoch tốt nhất; confusion matrix số lượng và tỷ lệ theo nhãn thật. |
@@ -181,10 +183,16 @@ Notebook hiển thị đầy đủ các hàng/cột và nội dung câu demo; b�
 
 **Phân biệt dev với test:** bảng so sánh có đủ 5 mô hình khi chạy `FULL_WITH_NEURAL`, nhưng test và demo vẫn dùng baseline đã khóa trước đó. BiLSTM/PhoBERT chỉ đánh giá trên train/dev. `confidence_proxy` trong demo chưa phải xác suất đúng đã hiệu chỉnh.
 
+### Lưu kết quả từ Colab về máy
+
+- **Để viết báo cáo/trình bày:** giữ notebook có output và tải `reports.zip`. ZIP chứa JSON/CSV/PNG báo cáo ở cấp gốc của thư mục lần chạy.
+- **Để dùng lại mô hình mà không train lại:** tải thêm `<model_duoc_chon>.joblib`, `bilstm_binary.best.pt` và toàn bộ `phobert_binary.best/` nếu đã chạy neural. Những checkpoint này không nằm trong `reports.zip`.
+- **Để lưu trọn bộ lần chạy:** nén và tải cả thư mục `/content/vihsd_ai_outputs/<run_id>/`, đồng thời giữ phiên bản source tương ứng. Tải về trước khi runtime Colab bị xóa.
+
 ---
 
 ## 6. Xử lý sự cố thường gặp (Troubleshooting)
 
 * **Lỗi khi cài `underthesea`:** Thư viện được ghim vào một Git commit cụ thể để đảm bảo tính tái lập. Nếu chạy trên máy local, hãy chắc chắn máy đã cài `git` và lệnh `git --version` chạy được trong Terminal. (Trên Google Colab, `git` đã có sẵn mặc định).
-* **Lỗi `AssertionError: Review dev selection then explicitly confirm test`:** Đây là chốt chặn an toàn nhằm ngăn ngừa việc vô tình mở tập Test trước khi xem xét kỹ tập Dev. Hãy đảm bảo biến `CONFIRM_TEST_AFTER_LOCK = True` tại Cell 1.
+* **Lỗi `AssertionError: Review dev selection then explicitly confirm test`:** Đây là chốt chặn an toàn nhằm ngăn ngừa việc vô tình mở tập Test trước khi xem xét kỹ tập Dev. Hãy đảm bảo biến `CONFIRM_TEST_AFTER_LOCK = True` tại mục 1 — Cấu hình chế độ chạy.
 * **Huấn luyện mô hình Deep Learning bị chậm:** Dùng GPU trên Colab. Notebook in tiến độ theo batch và kết quả từng epoch, đồng thời lưu lịch sử sau mỗi epoch; việc đánh giá toàn bộ train/dev sau mỗi epoch làm tăng thời gian chạy.

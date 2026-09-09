@@ -620,9 +620,94 @@ class Reports:
                     f"{name} • checkpoint tốt nhất",
                 )
 
-    def comparison(self, baselines, neural, test):
+    def neural_test(self, neural_test):
+        """Kết quả TEST của BiLSTM/PhoBERT; ngưỡng đã chọn trên dev, không dùng test."""
+        if neural_test is None or not neural_test.models:
+            print("Chưa có kết quả test cho nhánh neural.")
+            return
+        entries, tuned_rows = [], []
+        for name, entry in neural_test.models.items():
+            entries.append((f"{name} @0.5", "test", entry["test"]))
+            tuned = entry.get("tuned_threshold")
+            if tuned:
+                entries.append((f"{name} @{tuned['value']:.2f}", "test", tuned["test"]))
+                tuned_rows.append(
+                    {
+                        "model": name,
+                        "threshold": tuned["value"],
+                        "chọn trên": tuned["selected_on"],
+                        "tiêu chí": tuned["criterion"],
+                        "dev_macro_f1": tuned["dev"]["macro"]["f1"],
+                        "dev_toxic_f1": tuned["dev"]["per_class"]["TOXIC"]["f1"],
+                        "test_macro_f1": tuned["test"]["macro"]["f1"],
+                        "test_toxic_recall": tuned["test"]["per_class"]["TOXIC"][
+                            "recall"
+                        ],
+                        "test_toxic_f1": tuned["test"]["per_class"]["TOXIC"]["f1"],
+                        "test_macro_f1_@0.5": entry["test"]["macro"]["f1"],
+                    }
+                )
+        self.metric_tables(entries, "neural_test")
+        self.plot_confusions(
+            [(label, score) for label, _, score in entries],
+            "neural_test_confusions.png",
+            "BiLSTM / PhoBERT trên TEST",
+        )
+        if tuned_rows:
+            self.show_table(
+                pd.DataFrame(tuned_rows),
+                "Ngưỡng quyết định tinh chỉnh trên DEV rồi áp nguyên vào TEST",
+                "neural_tuned_threshold.csv",
+            )
+        for name, report in neural_test.thresholds.items():
+            sweep = report["sweep"]
+            fig, ax = plt.subplots(figsize=(7, 4))
+            for column, label, color in [
+                ("macro_f1", "Macro-F1", "#2878B5"),
+                ("toxic_f1", "TOXIC F1", "#E69F00"),
+                ("toxic_recall", "TOXIC Recall", COLORS["TOXIC"]),
+                ("toxic_precision", "TOXIC Precision", "#579D85"),
+            ]:
+                ax.plot(sweep.threshold, sweep[column], marker="o", ms=3, label=label, color=color)
+            ax.axvline(0.5, color="#999999", linestyle="--", label="mặc định 0.5")
+            ax.axvline(
+                report["suggested"]["best_toxic_f1"],
+                color="#C0392B",
+                linestyle=":",
+                label=f"chọn {report['suggested']['best_toxic_f1']:.2f}",
+            )
+            ax.set(
+                title=f"{name} • quét ngưỡng trên DEV",
+                xlabel="Ngưỡng phân loại TOXIC",
+                ylabel="Điểm",
+                ylim=(0, 1.05),
+            )
+            ax.legend(fontsize=8)
+            ax.grid(alpha=0.2)
+            self.show_figure(fig, f"{name}_dev_threshold_sweep.png")
+
+    def comparison(self, baselines, neural, test, neural_test=None):
         ranked, neural_payload = baselines.ranked, neural.payload
         lock, test_metrics = test.lock, test.metrics
+        neural_test_models = (
+            neural_test.models if neural_test is not None else {}
+        )
+
+        def test_columns(score):
+            if score is None:
+                return {
+                    "test_accuracy": None,
+                    "test_macro_f1": None,
+                    "test_toxic_recall": None,
+                    "test_toxic_f1": None,
+                }
+            return {
+                "test_accuracy": score["accuracy"],
+                "test_macro_f1": score["macro"]["f1"],
+                "test_toxic_recall": score["per_class"]["TOXIC"]["recall"],
+                "test_toxic_f1": score["per_class"]["TOXIC"]["f1"],
+            }
+
         RUN_ID, RUN_MODE = self.run.run_id, self.run.config.run_mode
         comparison_rows = []
         all_dev_entries = []
@@ -640,6 +725,11 @@ class Reports:
                     "fit_seconds": row["fit_seconds"],
                     "evaluation_seconds": row["evaluation_seconds"],
                     "test_and_demo_model": row["name"] == lock["selected_model"],
+                    **test_columns(
+                        test_metrics
+                        if row["name"] == lock["selected_model"]
+                        else None
+                    ),
                 }
             )
             all_dev_entries.append((row["name"], "dev", row["dev"]))
@@ -660,6 +750,9 @@ class Reports:
                     "fit_seconds": row["fit_seconds"],
                     "evaluation_seconds": row["evaluation_seconds"],
                     "test_and_demo_model": False,
+                    **test_columns(
+                        neural_test_models.get(name, {}).get("test")
+                    ),
                 }
             )
             all_dev_entries.append((name, "dev", row["dev"]))
@@ -755,6 +848,30 @@ class Reports:
             f"Model TEST và DEMO đã khóa: {lock['selected_model']} "
             f"(test Accuracy={test_metrics['accuracy']:.4f}; test Macro-F1={test_metrics['macro']['f1']:.4f})"
         )
+        scored_on_test = leaderboard.dropna(subset=["test_macro_f1"])
+        if len(scored_on_test) > 1:
+            self.show_table(
+                scored_on_test[
+                    [
+                        "model",
+                        "type",
+                        "dev_macro_f1",
+                        "test_accuracy",
+                        "test_macro_f1",
+                        "test_toxic_recall",
+                        "test_toxic_f1",
+                    ]
+                ].sort_values("test_macro_f1", ascending=False),
+                "Bảng so sánh trên TEST (baseline đã khóa + neural chấm sau khi khóa)",
+                "all_models_test_leaderboard.csv",
+            )
+            best_test = scored_on_test.sort_values(
+                "test_macro_f1", ascending=False
+            ).iloc[0]
+            print(
+                f"Model đứng đầu TEST: {best_test['model']} "
+                f"(test Macro-F1={best_test['test_macro_f1']:.4f})"
+            )
         if RUN_MODE == "SMOKE":
             print(
                 "SMOKE: kết quả chỉ dùng kiểm tra luồng, không đưa vào báo cáo chất lượng mô hình."

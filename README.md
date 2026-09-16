@@ -102,14 +102,23 @@ flowchart TD
 ## 4. Hướng dẫn chạy Notebook
 
 ### 4.1. Chạy trên Google Colab (Khuyến nghị)
-1. Bấm vào huy hiệu [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/andrewthongle/cs106-ai-project/blob/main/tri_tue_nhan_tao.ipynb) để mở trực tiếp trên Colab bằng tài khoản Google của bạn.
-   Notebook cần cả package `vihsd_ai/` và các file requirements cùng phiên bản. Cell thiết lập tự clone repo khi chưa có source. Nếu các thay đổi mới chưa được đẩy lên GitHub, upload checkout mới vào `/content/cs106-ai-project/` trước khi chạy; cell không tự ghi đè checkout đã tồn tại.
+1. Mở notebook theo một trong hai cách:
+   * **Chạy đúng bản trên GitHub:** bấm huy hiệu [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/andrewthongle/cs106-ai-project/blob/main/tri_tue_nhan_tao.ipynb). Cell thiết lập tự clone repo khi chưa có source.
+   * **Chạy bản checkout cục bộ:** `File` → `Upload notebook` để tải `tri_tue_nhan_tao.ipynb` lên, rồi kéo thả nguyên thư mục checkout (hoặc riêng `vihsd_ai/` kèm hai file requirements) vào `/content` qua bảng **Files**.
+
+   Cell thiết lập dò `vihsd_ai/` theo thứ tự: thư mục hiện tại → các thư mục cha → các thư mục con một cấp; trong đó ưu tiên bản có `neural_eval.py` để không dùng nhầm checkout cũ. Nó cũng dọn `sys.path` và các module đã nạp nên đổi nguồn code không cần restart kernel. Cell in ra đường dẫn đang dùng — kiểm tra dòng này trước khi chạy tiếp:
+
+   ```text
+   Dùng code tại: /content/Code
+     neural_eval.py: có
+   ```
 2. Tại **mục 1 — Cấu hình chế độ chạy**, bạn có thể tùy chỉnh biến `RUN_MODE`:
    * `"SMOKE"`: Chạy trên tập mẫu nhỏ để kiểm tra luồng tải dữ liệu, train, đánh giá và xuất báo cáo; không dùng để báo cáo chất lượng mô hình.
    * `"FULL"`: Chạy 3 baseline trên toàn bộ các split ViHSD theo giao thức train/dev/test ở trên. Thời gian phụ thuộc máy và môi trường.
    * `"FULL_WITH_NEURAL"`: Chạy toàn bộ dữ liệu kèm theo huấn luyện mô hình học sâu BiLSTM và fine-tune PhoBERT. Chọn GPU tại **Runtime** → **Change runtime type** → **T4 GPU**. Biến `NEURAL_EPOCHS` mặc định là 3; mỗi epoch đánh giá cả train/dev để vẽ đường học nên thời gian chạy phụ thuộc GPU và số epoch.
 3. Bấm **Runtime** → **Run all** (hoặc tổ hợp phím `Ctrl + F9` / `Cmd + F9`).
 4. Kết quả được lưu vào `/content/vihsd_ai_outputs/<run_id>/`. Notebook in đường dẫn cụ thể; mỗi lần khởi tạo tạo thư mục riêng để tránh trộn kết quả cũ. Sau khi hoàn tất, tải `reports.zip` từ bảng **Files** của Colab để lấy các file JSON/CSV/PNG báo cáo (không gồm checkpoint mô hình).
+5. **Mục 16 — ô thử nhanh** ở cuối notebook cho phép nhập câu mới và xem nhãn dự đoán mà không cần chạy lại toàn bộ; model đã nằm sẵn trong bộ nhớ nên mỗi lần chạy mất dưới một giây. Chỉ cần chạy lại riêng ô đó sau khi sửa câu.
 
 ### 4.2. Chạy trên máy cục bộ (Local)
 Yêu cầu môi trường: **Python 3.10+** và máy đã cài sẵn công cụ `git`.

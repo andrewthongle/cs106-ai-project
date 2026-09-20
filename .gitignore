@@ -1,7 +1,22 @@
+# Python
 __pycache__/
 *.py[cod]
 .ruff_cache/
 .ipynb_checkpoints/
 .venv/
+
+# Kết quả chạy và dữ liệu tải về
 /outputs/
 /vihsd.zip
+
+# Rác hệ điều hành
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+__MACOSX/
+Thumbs.db
+desktop.ini
+
+# Gói bài nộp đóng lại từ thư mục bên cạnh, không cần theo dõi
+/CS106.F31.CN2.TTNT-Project.zip

@@ -1,0 +1,8 @@
+pandas
+scikit-learn
+joblib>=1.5,<2
+matplotlib
+ipython
+pyyaml
+huggingface-hub>=0.34,<1
+underthesea @ git+https://github.com/undertheseanlp/underthesea.git@3f5a619799c61d630bb4eb622c048d8cfdce5e76

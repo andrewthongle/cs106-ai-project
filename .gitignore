@@ -20,3 +20,6 @@ desktop.ini
 
 # Gói bài nộp đóng lại từ thư mục bên cạnh, không cần theo dõi
 /CS106.F31.CN2.TTNT-Project.zip
+
+# Video demo quá nặng cho git, chia sẻ qua Drive
+CS106.F31.CN2.TTNT-Project/Chuong-trinh/Demo/Video/*.mp4

@@ -1,0 +1,142 @@
+HƯỚNG DẪN CHẠY CHƯƠNG TRÌNH
+Đồ án CS106 - Phân loại phát ngôn độc hại tiếng Việt (ViHSD)
+Lớp CS106.F31.CN2.TTNT - GVHD: Nguyễn Đình Hiển
+================================================================
+
+
+CÁCH 1 - GOOGLE COLAB (khuyến nghị, có GPU miễn phí)
+====================================================
+
+Bước 1. Mở notebook
+    Vào https://colab.research.google.com
+    File > Upload notebook > chọn Code/tri_tue_nhan_tao.ipynb
+
+Bước 2. Bật GPU
+    Runtime > Change runtime type > Hardware accelerator > T4 GPU > Save
+    Đợi góc trên phải hiện biểu đồ RAM/Disk là đã kết nối xong.
+
+Bước 3. Đưa code lên Colab
+    Bấm icon thư mục ở thanh dọc bên trái để mở panel Files.
+    Kéo nguyên thư mục "Code" từ máy thả vào panel đó.
+
+    LƯU Ý: panel Files lấy /content làm gốc, nên không có thư mục nào tên
+    "content" để bấm vào. Danh sách đang thấy (thường có sample_data) chính
+    là bên trong /content rồi. Cứ thả ngang hàng với sample_data.
+
+    Nếu kéo thả không được, dùng cell sau để chọn file qua hộp thoại:
+        from google.colab import files
+        files.upload()
+
+Bước 4. Chọn chế độ chạy
+    Tại mục 1 của notebook:
+        RUN_MODE = "FULL_WITH_NEURAL"
+        CONFIRM_TEST_AFTER_LOCK = True
+
+Bước 5. Chạy
+    Runtime > Run all
+    Khoảng 25-30 phút với GPU T4.
+
+Bước 6. Lấy kết quả
+    Kết quả ở /content/vihsd_ai_outputs/<run_id>/
+    Cell cuối in ra đường dẫn cụ thể.
+    Tải reports.zip từ panel Files (chuột phải > Download) để lấy toàn bộ
+    bảng biểu và hình ảnh.
+
+    QUAN TRỌNG: tải về trước khi đóng tab. Colab xoá sạch /content khi ngắt
+    kết nối, mất luôn cả checkpoint mô hình.
+
+
+KIỂM TRA ĐANG CHẠY ĐÚNG BẢN CODE
+=================================
+Cell thiết lập (mục 2) in ra ngay khi chạy:
+
+    Dùng code tại: /content/Code
+      neural_eval.py: có
+
+Nếu thấy "KHÔNG CÓ (bản cũ)" thì code chưa được đưa lên đúng chỗ, dừng lại
+kiểm tra bước 3 rồi chạy lại, đừng đợi hết 30 phút.
+
+Cell thiết lập tự dò package vihsd_ai/ theo thứ tự: thư mục hiện tại, các
+thư mục cha, rồi các thư mục con một cấp. Nên upload thư mục Code/ hay
+upload thẳng vihsd_ai/ đều chạy được.
+
+
+CÁCH 2 - MÁY CÁ NHÂN
+=====================
+Yêu cầu: Python 3.10 trở lên, đã cài Git.
+
+    cd Code
+    python3 -m venv .venv
+    source .venv/bin/activate        # Windows: .venv\Scripts\activate
+    pip install -r requirements.txt
+    pip install -r requirements-neural.txt
+    pip install jupyterlab
+    jupyter lab tri_tue_nhan_tao.ipynb
+
+Kết quả lưu ở outputs/notebook_run/<run_id>/
+
+Không có GPU thì đặt RUN_MODE = "FULL". Huấn luyện PhoBERT trên CPU mất
+nhiều giờ.
+
+
+BA CHẾ ĐỘ CHẠY
+===============
+  SMOKE             Tập mẫu nhỏ, chỉ kiểm tra luồng        vài phút
+  FULL              3 mô hình baseline, toàn bộ dữ liệu    khoảng 2 phút
+  FULL_WITH_NEURAL  Đủ 5 mô hình, cần GPU                  khoảng 30 phút
+
+Số liệu của SMOKE không dùng để báo cáo, chỉ để kiểm tra code chạy thông.
+
+
+THỬ NGHIỆM CÂU MỚI - MỤC 16 Ở CUỐI NOTEBOOK
+============================================
+Sau khi chạy xong, cuộn xuống mục 16 để nhập câu mới và xem nhãn dự đoán.
+
+Sửa danh sách cau_moi rồi chạy lại ô đó là xem được nhãn dự đoán của
+từng câu.
+
+KHÔNG cần Run all lại. Model đã nằm sẵn trong bộ nhớ, mỗi lần chạy lại chỉ
+mất dưới một giây. Chỉ bấm chạy riêng ô đó (Shift + Enter).
+
+Nếu báo "Chưa có model trong bộ nhớ" thì runtime đã bị ngắt hoặc vừa
+Restart session, phải chạy lại từ đầu.
+
+
+DỮ LIỆU
+========
+Chương trình tự tải ViHSD từ GitHub và kiểm tra mã băm SHA-256 trước khi
+dùng, không cần chuẩn bị gì thêm.
+Bản sao dự phòng để sẵn ở Code/data/vihsd/ (train.csv, dev.csv, test.csv).
+
+
+XỬ LÝ SỰ CỐ
+============
+"ModuleNotFoundError: No module named 'vihsd_ai'"
+    -> Code chưa lên đúng chỗ. Chạy: !ls /content
+       Phải thấy thư mục Code (hoặc vihsd_ai). Xem lại bước 3.
+
+"ModuleNotFoundError: No module named 'vihsd_ai.neural_eval'"
+    -> Đang chạy nhầm bản cũ tải từ GitHub. Chạy:
+       !rm -rf /content/cs106-ai-project
+       rồi đưa lại thư mục Code lên và Restart session.
+
+"AssertionError: Review dev selection then explicitly confirm test"
+    -> Đặt CONFIRM_TEST_AFTER_LOCK = True ở mục 1.
+
+Lỗi khi cài underthesea
+    -> Máy cần có Git. Kiểm tra: git --version
+
+Huấn luyện quá chậm
+    -> Kiểm tra đã bật GPU T4 chưa, hoặc đổi RUN_MODE sang FULL.
+
+Sửa file .py xong chạy lại mà không thấy thay đổi
+    -> Runtime > Restart session and run all.
+       Python giữ bản cũ trong bộ nhớ, không restart thì vẫn dùng bản cũ.
+
+Muốn dừng giữa chừng
+    -> Runtime > Interrupt execution. Biến và file vẫn còn.
+       ĐỪNG chọn "Disconnect and delete runtime" vì sẽ xoá sạch /content.
+
+Cell "from google.colab import drive" báo lỗi
+    -> Cell đó do Colab tự chèn khi bấm nút Mount Drive, notebook của nhóm
+       không cần Google Drive. Xoá cell đó đi.

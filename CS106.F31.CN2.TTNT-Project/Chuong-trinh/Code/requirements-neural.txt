@@ -1,0 +1,5 @@
+-r requirements.txt
+torch
+transformers>=4.40,<5
+accelerate
+gensim>=4.3,<5

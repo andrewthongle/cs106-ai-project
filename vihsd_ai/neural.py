@@ -83,6 +83,18 @@ def class_weights(labels, device=None):
     )
 
 
+def batch_weight(targets, weight_tensor):
+    """Mẫu số đúng để khử trung bình khi cộng dồn loss có trọng số lớp.
+
+    CrossEntropyLoss(weight=..., reduction="mean") chia tổng loss cho TỔNG TRỌNG SỐ
+    của batch, không phải cho số mẫu. Nhân lại với len(batch) sẽ khử sai mẫu số và
+    làm lệch con số loss báo cáo.
+    """
+    if weight_tensor is None:
+        return float(len(targets))
+    return float(weight_tensor[targets].sum().item())
+
+
 def build_vocabulary(processed_texts, *, min_count=2, max_size=39998):
     counts = Counter(token for text in processed_texts for token in text.split())
     vocab_tokens = [
@@ -327,14 +339,16 @@ def train_bilstm(
 
     def evaluate_bilstm(model, eval_loader, labels):
         model.eval()
-        total_loss, total_rows, predictions = 0.0, 0, []
+        total_loss, total_weight, predictions = 0.0, 0.0, []
         with torch.inference_mode():
             for x, lengths, y in eval_loader:
+                y = y.to(device)
                 logits = model(x.to(device), lengths)
-                total_loss += float(loss_fn(logits, y.to(device)).item()) * len(y)
-                total_rows += len(y)
+                weight = batch_weight(y, weight_tensor)
+                total_loss += float(loss_fn(logits, y).item()) * weight
+                total_weight += weight
                 predictions.extend(logits.argmax(1).cpu().tolist())
-        return total_loss / total_rows, metrics(
+        return total_loss / total_weight, metrics(
             labels, [BINARY_LABELS[i] for i in predictions]
         )
 
@@ -342,15 +356,18 @@ def train_bilstm(
     for epoch in range(1, NEURAL_EPOCHS + 1):
         epoch_started = time.perf_counter()
         bilstm.train()
-        running_loss = 0.0
+        running_loss, running_weight = 0.0, 0.0
         for batch_index, (x, lengths, y) in enumerate(loader, 1):
+            y = y.to(device)
             optimizer.zero_grad()
-            loss = loss_fn(bilstm(x.to(device), lengths), y.to(device))
+            loss = loss_fn(bilstm(x.to(device), lengths), y)
             loss.backward()
             if grad_clip:
                 nn.utils.clip_grad_norm_(bilstm.parameters(), grad_clip)
             optimizer.step()
-            running_loss += float(loss.item()) * len(y)
+            weight = batch_weight(y, weight_tensor)
+            running_loss += float(loss.item()) * weight
+            running_weight += weight
             if batch_index % 250 == 0:
                 print(
                     f"BiLSTM epoch {epoch}: batch {batch_index}/{len(loader)}",
@@ -367,7 +384,7 @@ def train_bilstm(
         row = {
             "model": "bilstm",
             "epoch": epoch,
-            "optimization_loss": running_loss / len(train_df),
+            "optimization_loss": running_loss / running_weight,
             "train_loss": train_loss,
             "dev_loss": dev_loss,
             "train": train_score,
@@ -530,13 +547,15 @@ def train_phobert(
 
     def evaluate_phobert(model, texts, labels):
         model.eval()
-        total_loss, predictions = 0.0, []
+        total_loss, total_weight, predictions = 0.0, 0.0, []
         with torch.inference_mode():
             for encoded, targets in batches(texts, labels):
                 logits = model(**encoded).logits
-                total_loss += float(loss_fn(logits, targets).item()) * len(targets)
+                weight = batch_weight(targets, weight_tensor)
+                total_loss += float(loss_fn(logits, targets).item()) * weight
+                total_weight += weight
                 predictions.extend(logits.argmax(1).cpu().tolist())
-        return total_loss / len(labels), metrics(
+        return total_loss / total_weight, metrics(
             labels, [BINARY_LABELS[i] for i in predictions]
         )
 
@@ -545,7 +564,7 @@ def train_phobert(
     for epoch in range(1, NEURAL_EPOCHS + 1):
         epoch_started = time.perf_counter()
         phobert.train()
-        running_loss = 0.0
+        running_loss, running_weight = 0.0, 0.0
         for batch_index, (encoded, targets) in enumerate(
             batches(processed_train, train_labels), 1
         ):
@@ -557,7 +576,9 @@ def train_phobert(
                 nn.utils.clip_grad_norm_(phobert.parameters(), grad_clip)
             optimizer.step()
             scheduler.step()
-            running_loss += float(loss.item()) * len(targets)
+            weight = batch_weight(targets, weight_tensor)
+            running_loss += float(loss.item()) * weight
+            running_weight += weight
             if batch_index % 250 == 0:
                 print(
                     f"PhoBERT epoch {epoch}: batch {batch_index}/{steps_per_epoch}",
@@ -572,7 +593,7 @@ def train_phobert(
         row = {
             "model": "phobert",
             "epoch": epoch,
-            "optimization_loss": running_loss / len(train_df),
+            "optimization_loss": running_loss / running_weight,
             "train_loss": train_loss,
             "dev_loss": dev_loss,
             "train": train_score,
